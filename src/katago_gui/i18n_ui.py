@@ -1,4 +1,34 @@
 ENGLISH: dict[str, str] = {
+    "设置": "Settings",
+    "引擎与模型": "Engine and Model",
+    "性能调优": "Performance Tuning",
+    "外观与语言": "Appearance and Language",
+    "日志与诊断": "Logs and Diagnostics",
+    "局面研究（自由落子）": "Study Position (Free Play)",
+    "界面主题": "Interface Theme",
+    "界面语言": "Interface Language",
+    "深色": "Dark",
+    "浅色": "Light",
+    "国风": "Chinese",
+    "简体中文": "Simplified Chinese",
+    "未配置": "Not configured",
+    "引擎：{0}\n模型：{1}\n配置：{2}": "Engine: {0}\nModel: {1}\nConfig: {2}",
+    "主题与语言立即生效并保存在本机，不改变棋局或引擎。":
+        "Theme and language changes are saved locally and applied immediately without changing the game or engine.",
+    "界面主题已切换": "Interface theme changed",
+    "不支持的界面主题：{0}": "Unsupported interface theme: {0}",
+    "请先停止整盘分析或性能调优": "Stop game review or performance tuning first",
+    "正在停止后台任务…": "Stopping background task...",
+    "调优配置未能保存，保留原配置": "Tuned configuration could not be saved; the original configuration is retained",
+    "后台任务尚未结束，请稍后再关闭窗口": "A background task is still stopping; close the window again shortly",
+    "后台任务运行中，正常引擎已暂停": "Background task running; the game engine is paused",
+    "调优前请停止对局搜索或分析。测试有时间限制，不保证性能提升。":
+        "Stop game searches or analysis before tuning. Tests are time-limited and performance improvements are not guaranteed.",
+    "开始调优": "Start tuning",
+    "取消调优": "Cancel tuning",
+    "恢复上次配置": "Restore previous configuration",
+    "&nbsp;&nbsp;<span>（胜率前 {0} / 最多 {1} 候选）</span>":
+        "&nbsp;&nbsp;<span>(Top {0} / up to {1})</span>",
     "不支持的界面语言：{0}": "Unsupported interface language: {0}",
     "黑": "Black",
     "白": "White",
@@ -232,3 +262,7 @@ ENGLISH: dict[str, str] = {
     "{0} 必须是 JSON 对象": "{0} must be a JSON object",
     "{0} 必须是字符串": "{0} must be a string",
 }
+
+from .i18n_tsumego import ENGLISH as TSUMEGO_ENGLISH
+
+ENGLISH.update(TSUMEGO_ENGLISH)

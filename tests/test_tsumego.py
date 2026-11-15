@@ -52,7 +52,7 @@ def test_reject_invalid_tsumego_sgf(text):
 def test_page_plays_answer_reply_and_persists_progress(qtbot, tmp_path, isolated_home):
     path = tmp_path / "life-and-death.sgf"
     path.write_text(
-        "(;SZ[9]GN[Test]PL[B]AB[aa];B[cb](;W[cc];B[dd])(;W[cd]))",
+        "(;SZ[9]GN[Test]PL[B]AB[aa];B[cb](;W[cc];B[dd]C[Correct])(;W[cd]))",
         encoding="utf-8",
     )
     page = TsumegoPage()
@@ -95,7 +95,7 @@ def test_main_window_has_independent_tsumego_mode(qtbot, make_controller):
     assert window.btn_tsumego.isChecked()
     assert controller.mode == InteractionMode.PLAY
     window.btn_analysis.click()
-    assert window.content_stack.currentWidget() is window.split
-    assert controller.mode == InteractionMode.ANALYSIS
+    assert window.content_stack.currentWidget() is window.review_page
+    assert controller.mode == InteractionMode.PLAY
     assert window.btn_analysis.isChecked()
     assert not window.btn_tsumego.isChecked()

@@ -10,7 +10,7 @@ from ..controller import AnalysisResult
 from ..go.coords import GTP_COLUMNS, Point, from_gtp
 from ..go.game import MoveRecord
 from ..go.board import Board
-from .theme import CANDIDATE_COLORS, CANDIDATE_TEXT_COLORS
+from .theme import CANDIDATE_COLORS, CANDIDATE_TEXT_COLORS, widget_colors
 
 STAR_POINTS = {
     9: [(2, 2), (6, 2), (4, 4), (2, 6), (6, 6)],
@@ -49,6 +49,7 @@ class BoardWidget(QWidget):
         self.show_candidates = True
         self.interactive = False
         self._hover: Optional[Point] = None
+        self._view_region: Optional[tuple[int, int, int, int]] = None
         self.setMouseTracking(True)
         self.setMinimumSize(360, 360)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -56,6 +57,18 @@ class BoardWidget(QWidget):
     # ------------------------------------------------------------ API
     def set_game(self, game: BoardPosition) -> None:
         self.game = game
+        if self._view_region and (self._view_region[2] >= game.size or self._view_region[3] >= game.size):
+            self._view_region = None
+        self.update()
+
+    def set_view_region(self, region: Optional[tuple[int, int, int, int]]) -> None:
+        n = self.game.size if self.game else 19
+        if region is not None:
+            x0, y0, x1, y1 = region
+            if not (0 <= x0 <= x1 < n and 0 <= y0 <= y1 < n):
+                raise ValueError("Invalid board view region")
+        self._view_region = region
+        self._hover = None
         self.update()
 
     def set_analysis(self, a: Optional[AnalysisResult]) -> None:
@@ -77,12 +90,17 @@ class BoardWidget(QWidget):
 
     # -------------------------------------------------------- geometry
     def _geom(self) -> tuple[float, float, float]:
-        n = self.game.size if self.game else 19
+        x0, y0, x1, y1 = self._bounds()
+        cols, rows = x1 - x0 + 1, y1 - y0 + 1
         side = min(self.width(), self.height())
-        cell = side / (n + 1)
-        ox = (self.width() - side) / 2 + cell
-        oy = (self.height() - side) / 2 + cell
+        cell = side / (max(cols, rows) + 1)
+        ox = (self.width() - cell * (cols + 1)) / 2 + cell - x0 * cell
+        oy = (self.height() - cell * (rows + 1)) / 2 + cell - y0 * cell
         return cell, ox, oy
+
+    def _bounds(self) -> tuple[int, int, int, int]:
+        n = self.game.size if self.game else 19
+        return self._view_region or (0, 0, n - 1, n - 1)
 
     def point_at(self, px: float, py: float) -> Optional[Point]:
         if not self.game:
@@ -90,7 +108,8 @@ class BoardWidget(QWidget):
         cell, ox, oy = self._geom()
         fx, fy = (px - ox) / cell, (py - oy) / cell
         x, y = round(fx), round(fy)
-        if not (0 <= x < self.game.size and 0 <= y < self.game.size):
+        x0, y0, x1, y1 = self._bounds()
+        if not (x0 <= x <= x1 and y0 <= y <= y1):
             return None
         if (fx - x) ** 2 + (fy - y) ** 2 > 0.45 ** 2:
             return None
@@ -128,38 +147,43 @@ class BoardWidget(QWidget):
         n = g.size
         qp = QPainter(self)
         qp.setRenderHint(QPainter.RenderHint.Antialiasing)
+        colors = widget_colors(self)
         cell, ox, oy = self._geom()
-        side = cell * (n + 1)
-        bx, by = ox - cell, oy - cell
-        qp.fillRect(QRectF(bx, by, side, side), QColor("#DCB35C"))
+        x0, y0, x1, y1 = self._bounds()
+        bx, by = ox + (x0 - 1) * cell, oy + (y0 - 1) * cell
+        qp.fillRect(QRectF(bx, by, cell * (x1 - x0 + 2), cell * (y1 - y0 + 2)),
+                    QColor(colors["board"]))
 
-        qp.setPen(QPen(QColor("#3a2a10"), max(1.0, cell / 30)))
-        for i in range(n):
-            qp.drawLine(QPointF(ox, oy + i * cell), QPointF(ox + (n - 1) * cell, oy + i * cell))
-            qp.drawLine(QPointF(ox + i * cell, oy), QPointF(ox + i * cell, oy + (n - 1) * cell))
-        qp.setBrush(QColor("#3a2a10"))
+        qp.setPen(QPen(QColor(colors["grid"]), max(1.0, cell / 30)))
+        for i in range(y0, y1 + 1):
+            qp.drawLine(self.center_of((x0, i)), self.center_of((x1, i)))
+        for i in range(x0, x1 + 1):
+            qp.drawLine(self.center_of((i, y0)), self.center_of((i, y1)))
+        qp.setBrush(QColor(colors["grid"]))
         for p in STAR_POINTS[n]:
-            qp.drawEllipse(self.center_of(p), cell * 0.1, cell * 0.1)
+            if x0 <= p[0] <= x1 and y0 <= p[1] <= y1:
+                qp.drawEllipse(self.center_of(p), cell * 0.1, cell * 0.1)
 
         f = QFont(self.font())
         f.setPixelSize(max(8, int(cell * 0.32)))
         qp.setFont(f)
-        qp.setPen(QColor("#4a3818"))
-        for i in range(n):
-            c = self.center_of((i, 0))
+        qp.setPen(QColor(colors["coordinate"]))
+        for i in range(x0, x1 + 1):
+            c = self.center_of((i, y0))
             label = GTP_COLUMNS[i]
-            qp.drawText(QRectF(c.x() - cell / 2, oy - cell * 0.95, cell, cell * 0.5), Qt.AlignmentFlag.AlignCenter, label)
-            qp.drawText(QRectF(c.x() - cell / 2, oy + (n - 1) * cell + cell * 0.45, cell, cell * 0.5),
+            qp.drawText(QRectF(c.x() - cell / 2, oy + y0 * cell - cell * 0.95, cell, cell * 0.5), Qt.AlignmentFlag.AlignCenter, label)
+            qp.drawText(QRectF(c.x() - cell / 2, oy + y1 * cell + cell * 0.45, cell, cell * 0.5),
                         Qt.AlignmentFlag.AlignCenter, label)
-            r = self.center_of((0, i))
+        for i in range(y0, y1 + 1):
+            r = self.center_of((x0, i))
             num = str(n - i)
-            qp.drawText(QRectF(ox - cell * 0.98, r.y() - cell / 2, cell * 0.5, cell), Qt.AlignmentFlag.AlignCenter, num)
-            qp.drawText(QRectF(ox + (n - 1) * cell + cell * 0.48, r.y() - cell / 2, cell * 0.5, cell),
+            qp.drawText(QRectF(ox + x0 * cell - cell * 0.98, r.y() - cell / 2, cell * 0.5, cell), Qt.AlignmentFlag.AlignCenter, num)
+            qp.drawText(QRectF(ox + x1 * cell + cell * 0.48, r.y() - cell / 2, cell * 0.5, cell),
                         Qt.AlignmentFlag.AlignCenter, num)
 
         board = g.board
-        for y in range(n):
-            for x in range(n):
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
                 c = board.grid[y][x]
                 if c:
                     self._stone(qp, (x, y), c, cell)

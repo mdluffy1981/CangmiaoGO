@@ -106,7 +106,7 @@ class AnalysisPanel(QWidget):
         self.legend.setText(
             "&nbsp;&nbsp;".join(
                 f"<span style='color:{CANDIDATE_COLORS[t.name]}'>●</span> {tr(t.value)}" for t in CandidateTier
-            ) + tr("&nbsp;&nbsp;<span style='color:#B8B8D0'>（胜率前 {0} / 最多 {1} 候选）</span>",
+            ) + tr("&nbsp;&nbsp;<span>（胜率前 {0} / 最多 {1} 候选）</span>",
                    DISPLAY_CANDIDATES, ANALYSIS_MAX_MOVES)
         )
         self.legend.setToolTip(

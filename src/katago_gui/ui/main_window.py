@@ -12,8 +12,8 @@ from typing import Optional
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (QComboBox, QFileDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-                               QButtonGroup, QMainWindow, QMessageBox, QPushButton, QScrollArea, QSplitter,
-                               QStackedWidget,
+                               QButtonGroup, QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea, QSplitter,
+                               QSizePolicy, QStackedWidget,
                                QTabWidget, QVBoxLayout, QWidget)
 
 from .. import APP_NAME
@@ -26,8 +26,10 @@ from .analysis_panel import AnalysisPanel
 from .board_widget import BoardWidget
 from .dialogs import EngineSettingsDialog, LogDialog, NewGameDialog
 from .move_list import MoveList
-from .theme import APP_STYLESHEET
+from .theme import apply_theme
 from .tsumego_page import TsumegoPage
+from .review_page import ReviewPage
+from .settings_page import SettingsPage
 
 log = logging.getLogger("katago_gui.engine")
 
@@ -43,7 +45,12 @@ class MainWindow(QMainWindow):
         self.log_lines: deque[str] = deque(maxlen=3000)
         self._think_started: Optional[float] = None
         self.resize(1280, 860)
-        self.setStyleSheet(APP_STYLESHEET)
+        self._page = "play"
+        self._background_active = False
+        self._resume_engine = False
+        self._closing = False
+        self._pending_page: Optional[str] = None
+        apply_theme(self, settings.theme)
 
         self.board = BoardWidget()
         self.board.point_clicked.connect(self._on_point)
@@ -54,7 +61,7 @@ class MainWindow(QMainWindow):
         self.banner_text = QLabel()
         self.banner_text.setWordWrap(True)
         self.banner_btn_settings = QPushButton(tr('引擎设置…'))
-        self.banner_btn_settings.clicked.connect(self.open_engine_settings)
+        self.banner_btn_settings.clicked.connect(self.enter_settings)
         self.banner_btn_restart = QPushButton(tr('重启引擎'))
         self.banner_btn_restart.clicked.connect(self.ctl.restart_engine)
         bl.addWidget(self.banner_text, 1)
@@ -80,10 +87,12 @@ class MainWindow(QMainWindow):
         for button in (self.btn_play, self.btn_analysis, self.btn_tsumego):
             self.mode_buttons.addButton(button)
         self.btn_play.clicked.connect(self.enter_play_mode)
-        self.btn_settings = QPushButton(tr('引擎设置'))
+        self.btn_settings = QPushButton(tr('设置'))
+        self.btn_settings.setCheckable(True)
+        self.mode_buttons.addButton(self.btn_settings)
         self.btn_analysis.clicked.connect(self.enter_analysis_mode)
         self.btn_tsumego.clicked.connect(self.enter_tsumego_mode)
-        self.btn_settings.clicked.connect(self.open_engine_settings)
+        self.btn_settings.clicked.connect(self.enter_settings)
         self.btn_ai = QPushButton(tr('AI 落子'))
         self.btn_undo = QPushButton(tr('悔棋'))
         self.btn_pass = QPushButton(tr('停一手'))
@@ -101,9 +110,10 @@ class MainWindow(QMainWindow):
         self.btn_open.clicked.connect(self.open_sgf)
         self.btn_save.clicked.connect(lambda: self.save_sgf(False))
         self.btn_restart.clicked.connect(self.ctl.restart_engine)
-        self._control_buttons = (self.btn_new, self.btn_settings,
+        self._control_buttons = (self.btn_new,
                                  self.btn_ai, self.btn_undo, self.btn_pass, self.btn_score,
-                                 self.btn_resign, self.btn_restart, self.btn_open, self.btn_save)
+                                 self.btn_resign, self.btn_open, self.btn_save)
+        self.btn_restart.hide()
         self._button_grid = QGridLayout()
         self._button_grid.setSpacing(6)
         self._button_layout_mode: Optional[InteractionMode] = None
@@ -158,7 +168,8 @@ class MainWindow(QMainWindow):
         self.right_scroll.setWidgetResizable(True)
         self.right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.right_scroll.setWidget(right)
-        self.right_scroll.setMinimumWidth(360)
+        self.right_scroll.setMinimumWidth(0)
+        self.right_scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
 
         self.split = QSplitter()
         self.split.addWidget(left)
@@ -175,20 +186,19 @@ class MainWindow(QMainWindow):
         self.btn_sidebar.setChecked(True)
         self.btn_sidebar.setAccessibleName(tr('收起右栏'))
         self.btn_sidebar.toggled.connect(self.set_sidebar_expanded)
-        self.workspace_title = QLabel()
+        ll.addWidget(self.btn_sidebar)
+        self.workspace_title = QLabel(self)
         self.workspace_title.setObjectName("sectionTitle")
-        self.workspace_engine = QLabel()
+        self.workspace_engine = QLabel(self)
         self.workspace_engine.setObjectName("mutedText")
-        header = QHBoxLayout()
-        header.addWidget(self.workspace_title, 1)
-        header.addWidget(self.workspace_engine)
-        header.addWidget(self.btn_sidebar)
+        self.workspace_title.hide()
+        self.workspace_engine.hide()
 
         self.workspace = QWidget()
         self.workspace.setObjectName("appRoot")
         self.main_menu = QWidget()
         self.main_menu.setObjectName("mainMenu")
-        self.main_menu.setFixedWidth(128)
+        self.main_menu.setFixedWidth(152)
         menu_layout = QVBoxLayout(self.main_menu)
         menu_layout.setContentsMargins(8, 12, 8, 12)
         menu_layout.setSpacing(10)
@@ -201,6 +211,7 @@ class MainWindow(QMainWindow):
         menu_layout.addWidget(self.btn_analysis)
         menu_layout.addWidget(self.btn_tsumego)
         menu_layout.addStretch(1)
+        menu_layout.addWidget(self.btn_settings)
         content = QHBoxLayout()
         content.setSpacing(12)
         content.addWidget(self.main_menu)
@@ -208,11 +219,27 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.split)
         self.tsumego_page = TsumegoPage()
         self.content_stack.addWidget(self.tsumego_page)
+        self.review_page = ReviewPage(settings)
+        self.content_stack.addWidget(self.review_page)
+        self.settings_page = SettingsPage(settings)
+        self.content_stack.addWidget(self.settings_page)
+        self.settings_page.theme_changed.connect(self.change_theme)
+        self.settings_page.language_changed.connect(self.change_language)
+        self.settings_page.engine_requested.connect(self.open_engine_settings)
+        self.settings_page.restart_requested.connect(self.ctl.restart_engine)
+        self.settings_page.logs_requested.connect(lambda: LogDialog(list(self.log_lines), self).exec())
+        self.settings_page.study_requested.connect(self.enter_live_analysis_mode)
+        self.tuning_panel = self.settings_page.tuning
+        for panel in (self.review_page, self.tuning_panel):
+            panel.message.connect(self._show_msg)
+            panel.error.connect(self._error_box)
+            panel.start_guard = self._can_start_background
+            panel.running_changed.connect(self._on_background_running)
+        self.tuning_panel.config_applied.connect(self._apply_tuned_config)
         content.addWidget(self.content_stack, 1)
         workspace_layout = QVBoxLayout(self.workspace)
         workspace_layout.setContentsMargins(24, 16, 24, 16)
         workspace_layout.setSpacing(12)
-        workspace_layout.addLayout(header)
         workspace_layout.addLayout(content, 1)
 
         self.setCentralWidget(self.workspace)
@@ -246,7 +273,7 @@ class MainWindow(QMainWindow):
         self._on_state(c.state)
 
     def _build_menu(self) -> None:
-        m = self.file_menu = self.menuBar().addMenu(tr('文件(&F)'))
+        m = self.file_menu = QMenu(tr('文件(&F)'), self)
         self.file_actions: list[QAction] = []
         for text, key, slot in ((tr('新建棋局…'), QKeySequence.StandardKey.New, self.new_game),
                                 (tr('打开 SGF…'), QKeySequence.StandardKey.Open, self.open_sgf),
@@ -256,12 +283,13 @@ class MainWindow(QMainWindow):
             a.setShortcut(key)
             a.triggered.connect(slot)
             m.addAction(a)
+            self.addAction(a)
             self.file_actions.append(a)
         m.addSeparator()
         q = self.exit_action = QAction(tr('退出'), self)
         q.triggered.connect(self.close)
         m.addAction(q)
-        e = self.engine_menu = self.menuBar().addMenu(tr('引擎(&E)'))
+        e = self.engine_menu = QMenu(tr('引擎(&E)'), self)
         self.engine_actions: list[QAction] = []
         for text, slot in ((tr('引擎设置…'), self.open_engine_settings), (tr('重启引擎'), self.ctl.restart_engine),
                            (tr('查看日志…'), lambda: LogDialog(list(self.log_lines), self).exec())):
@@ -269,13 +297,14 @@ class MainWindow(QMainWindow):
             a.triggered.connect(slot)
             e.addAction(a)
             self.engine_actions.append(a)
-        view = self.view_menu = self.menuBar().addMenu(tr('视图(&V)'))
+        view = self.view_menu = QMenu(tr('视图(&V)'), self)
         self.sidebar_action = QAction(tr('显示右栏'), self)
         self.sidebar_action.setCheckable(True)
         self.sidebar_action.setChecked(True)
         self.sidebar_action.setShortcut("Ctrl+Shift+P")
         self.sidebar_action.toggled.connect(self.set_sidebar_expanded)
         view.addAction(self.sidebar_action)
+        self.addAction(self.sidebar_action)
         self.analysis_mode_action = QAction(tr('AI 分析模式'), self)
         self.analysis_mode_action.triggered.connect(self.enter_analysis_mode)
         view.addAction(self.analysis_mode_action)
@@ -285,7 +314,7 @@ class MainWindow(QMainWindow):
         self.analysis_action = QAction(tr('开始分析'), self)
         self.analysis_action.triggered.connect(self._toggle_analysis)
         view.addAction(self.analysis_action)
-        self.language_menu = self.menuBar().addMenu(tr("语言(&L)"))
+        self.language_menu = QMenu(tr("语言(&L)"), self)
         self.language_actions: dict[str, QAction] = {}
         for language, title in (("zh_CN", "简体中文"), ("en", "English")):
             action = QAction(title, self)
@@ -295,6 +324,20 @@ class MainWindow(QMainWindow):
             self.language_menu.addAction(action)
             self.language_actions[language] = action
 
+    def change_theme(self, theme: str) -> None:
+        previous = self.settings.theme
+        self.settings.theme = theme
+        if not self._save_settings():
+            self.settings.theme = previous
+            self.settings_page.sync()
+            return
+        apply_theme(self, theme)
+        for board in self.findChildren(BoardWidget):
+            board.update()
+        self.review_page.update()
+        self.settings_page.sync()
+        self._show_msg(tr("界面主题已切换"))
+
     def change_language(self, language: str) -> None:
         previous = self.settings.language
         self.settings.language = language
@@ -302,6 +345,7 @@ class MainWindow(QMainWindow):
             self.settings.language = previous
             for key, action in self.language_actions.items():
                 action.setChecked(key == previous)
+            self.settings_page.sync()
             return
         set_language(language)
         self.retranslate_ui()
@@ -313,7 +357,7 @@ class MainWindow(QMainWindow):
         for button, source in (
             (self.btn_new, "新建棋局"), (self.btn_play, "人机对战"),
             (self.btn_analysis, "AI 分析"), (self.btn_tsumego, "死活题"),
-            (self.btn_settings, "引擎设置"),
+            (self.btn_settings, "设置"),
             (self.btn_ai, "AI 落子"), (self.btn_undo, "悔棋"),
             (self.btn_pass, "停一手"), (self.btn_score, "数子"),
             (self.btn_resign, "认输"), (self.btn_open, "打开 SGF"),
@@ -349,6 +393,8 @@ class MainWindow(QMainWindow):
         self.btn_sidebar.setAccessibleName(text)
         self.analysis.retranslate_ui()
         self.tsumego_page.retranslate_ui()
+        self.review_page.retranslate_ui()
+        self.settings_page.retranslate_ui()
 
     # ------------------------------------------------------------ refresh
     def refresh(self) -> None:
@@ -379,7 +425,11 @@ class MainWindow(QMainWindow):
         else:
             mode_name = tr('人机对弈 · ') + (tr('你执黑') if g.human_color == "B" else tr('你执白'))
             self.workspace_title.setText(tr('{0} · {1} 路 · {2}', mode_name, g.size, tr(get_preset(self.ctl.strength_key).label)))
-        self.setWindowTitle(f"{APP_NAME} — {name}{' *' if g.dirty else ''}")
+        if self._page == "play":
+            self.setWindowTitle(f"{APP_NAME} — {name}{' *' if g.dirty else ''}")
+        else:
+            title = {"review": "AI 分析", "tsumego": "死活题", "settings": "设置"}[self._page]
+            self.setWindowTitle(f"{APP_NAME} — {tr(title)}")
         self.strength_desc.setText(get_preset(self.ctl.strength_key).describe())
         self.strength.blockSignals(True)
         self.strength.setCurrentIndex(list(PRESETS).index(self.ctl.strength_key))
@@ -402,27 +452,34 @@ class MainWindow(QMainWindow):
         self.btn_resign.setVisible(not analysis_mode)
         self.strength_box.setVisible(not analysis_mode)
         self._layout_buttons(c.mode)
-        idle = c.can_replace_game
+        idle = c.can_replace_game and not self._background_active
         self.btn_new.setEnabled(idle)
         self.btn_open.setEnabled(idle)
-        self.btn_save.setEnabled(c.can_save)
+        self.btn_save.setEnabled(c.can_save and not self._background_active)
         for i, action in enumerate(self.file_actions):
-            action.setEnabled(idle if i < 2 else c.can_save)
+            action.setEnabled(self._page == "play" and (idle if i < 2 else c.can_save and not self._background_active))
         self.btn_restart.setEnabled(s not in (State.UNCONFIGURED,))
-        self.btn_analysis.setEnabled(idle)
-        self.btn_play.setEnabled(idle)
-        self.btn_tsumego.setEnabled(idle or self._tsumego_active)
-        self.btn_analysis.setChecked(not self._tsumego_active and analysis_mode)
-        self.btn_play.setChecked(not self._tsumego_active and not analysis_mode)
-        self.btn_tsumego.setChecked(self._tsumego_active)
+        for button in (self.btn_analysis, self.btn_play, self.btn_tsumego):
+            button.setEnabled(True)
+        self.btn_analysis.setChecked(self._page == "review" or self._page == "play" and analysis_mode)
+        self.btn_play.setChecked(self._page == "play" and not analysis_mode)
+        self.btn_tsumego.setChecked(self._page == "tsumego")
+        self.btn_settings.setChecked(self._page == "settings")
+        self.settings_page.set_busy(self._background_active or s in (State.STARTING, State.SYNCING, State.AI_THINKING))
+        if self._background_active:
+            self.board.set_interactive(False)
+            for button in (self.btn_ai, self.btn_undo, self.btn_pass, self.btn_resign, self.btn_restart):
+                button.setEnabled(False)
         self.analysis_mode_action.setEnabled(idle)
         self.tsumego_mode_action.setEnabled(idle or self._tsumego_active)
+        for action in self.engine_actions[:2]:
+            action.setEnabled(not self._background_active and s not in (State.STARTING, State.SYNCING, State.AI_THINKING))
         self.strength.setEnabled(idle)
         # Analysis stays "on" across moves until the user stops it, even while a move is syncing.
         running = c.analysis_enabled or (s == State.ANALYZING and not c.analysis_stopping)
-        self.analysis.set_running(running, running or c.can_analyze())
+        self.analysis.set_running(running, not self._background_active and (running or c.can_analyze()))
         self.analysis_action.setText(tr('停止分析') if running else tr('开始分析'))
-        self.analysis_action.setEnabled(running or c.can_analyze())
+        self.analysis_action.setEnabled(not self._background_active and (running or c.can_analyze()))
         if s in (State.READY, State.GAME_OVER) and not c.supports_analysis and c.commands:
             self.analysis.set_unsupported(tr('当前引擎不支持 kata-analyze，无法显示分析结果。'))
         if g.finished:
@@ -434,6 +491,8 @@ class MainWindow(QMainWindow):
             turn = tr('{0}行棋（{1}）', color_name(g.to_move), whose)
         self.lbl_turn.setText(turn)
         self.lbl_state.setText(tr('引擎：{0}', tr(s.value)))
+        if self._background_active:
+            self.lbl_state.setText(tr("后台任务运行中，正常引擎已暂停"))
         self.workspace_engine.setText(tr(s.value))
         if s == State.UNCONFIGURED:
             self.banner_text.setText(tr('尚未配置 KataGo 引擎：') + (c.last_error or "") +
@@ -499,6 +558,9 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def _toggle_analysis(self) -> None:
+        if self._background_active:
+            self._show_msg(tr("请先停止整盘分析或性能调优"))
+            return
         if self.ctl.analysis_enabled or self.ctl.state == State.ANALYZING:
             self.ctl.stop_analysis()
             self._update_controls()
@@ -506,6 +568,63 @@ class MainWindow(QMainWindow):
             self.ctl.start_analysis()
 
     # ------------------------------------------------------------ actions
+    def _can_start_background(self) -> bool:
+        if self._background_active or self.ctl.state in (State.STARTING, State.SYNCING, State.AI_THINKING):
+            self._show_msg(tr("请等待当前引擎操作完成"))
+            return False
+        return True
+
+    def _on_background_running(self, running: bool) -> None:
+        if running:
+            self._resume_engine = self.ctl.state in (State.READY, State.GAME_OVER, State.ANALYZING)
+            self._background_active = True
+            self.ctl.shutdown()
+            self.ctl.engine.kill()
+        else:
+            self._background_active = False
+            pending, self._pending_page = self._pending_page, None
+            if pending is not None and not self._closing:
+                self._display_page(pending)
+            if self._resume_engine and not self._closing:
+                self._resume_engine = False
+                self.ctl.start_engine(auto_ai_move=False)
+        self._update_controls()
+
+    def _apply_tuned_config(self, config: str) -> None:
+        previous = self.settings.engine.config
+        self.settings.engine.config = config
+        if not self._save_settings():
+            self.settings.engine.config = previous
+            self._error_box(tr("调优配置未能保存，保留原配置"))
+        else:
+            self._resume_engine = True
+        self.settings_page.sync()
+
+    def _display_page(self, page: str) -> None:
+        self._page = page
+        self._tsumego_active = page == "tsumego"
+        self.content_stack.setCurrentWidget({
+            "play": self.split, "review": self.review_page,
+            "tsumego": self.tsumego_page, "settings": self.settings_page,
+        }[page])
+        self.refresh()
+
+    def _navigate(self, page: str) -> bool:
+        if self._background_active and self._page != page:
+            self._pending_page = page
+            self.review_page.cancel()
+            self.tuning_panel.cancel()
+            self._show_msg(tr("正在停止后台任务…"))
+            return False
+        if self.ctl.analysis_enabled or self.ctl.state == State.ANALYZING:
+            self.ctl.stop_analysis()
+        self._display_page(page)
+        return True
+
+    def enter_settings(self) -> None:
+        if self._navigate("settings"):
+            self.settings_page.sync()
+
     def set_sidebar_expanded(self, expanded: bool) -> None:
         if not expanded and not self.right_scroll.isHidden():
             self._expanded_sizes = self.split.sizes()
@@ -527,14 +646,13 @@ class MainWindow(QMainWindow):
             control.blockSignals(False)
 
     def show_workspace(self) -> None:
-        self._tsumego_active = False
-        self.content_stack.setCurrentWidget(self.split)
+        self._display_page("play")
         self.refresh()
 
     def enter_play_mode(self) -> None:
-        if self._tsumego_active:
-            self._tsumego_active = False
-            self.content_stack.setCurrentWidget(self.split)
+        if self._page != "play":
+            self._navigate("play")
+            return
         if self.ctl.mode == InteractionMode.ANALYSIS:
             self.new_game()
         else:
@@ -542,8 +660,11 @@ class MainWindow(QMainWindow):
         self._update_controls()
 
     def enter_analysis_mode(self) -> None:
-        self._tsumego_active = False
-        self.content_stack.setCurrentWidget(self.split)
+        self._navigate("review")
+
+    def enter_live_analysis_mode(self) -> None:
+        if not self._navigate("play"):
+            return
         if not self.ctl.can_replace_game:
             self._show_msg(tr('请等待当前引擎操作完成'))
             self._update_controls()
@@ -558,16 +679,7 @@ class MainWindow(QMainWindow):
         self._update_controls()
 
     def enter_tsumego_mode(self) -> None:
-        if self.ctl.state in (State.STARTING, State.SYNCING, State.AI_THINKING):
-            self._show_msg(tr('请等待当前引擎操作完成'))
-            self._update_controls()
-            return
-        if self.ctl.analysis_enabled or self.ctl.state == State.ANALYZING:
-            self.ctl.stop_analysis()
-        self._tsumego_active = True
-        self.content_stack.setCurrentWidget(self.tsumego_page)
-        self.workspace_title.setText(tr("死活题"))
-        self._update_controls()
+        self._navigate("tsumego")
 
     def show_score(self) -> None:
         g = self.ctl.game
@@ -591,7 +703,7 @@ class MainWindow(QMainWindow):
         return r == QMessageBox.StandardButton.Discard
 
     def new_game(self) -> None:
-        if not self.ctl.can_replace_game:
+        if self._background_active or not self.ctl.can_replace_game:
             self._show_msg(tr('请等待当前引擎操作完成'))
             return
         d = NewGameDialog(self.settings.game, self)
@@ -603,8 +715,7 @@ class MainWindow(QMainWindow):
 
         def committed() -> None:
             self.current_path = None
-            self._tsumego_active = False
-            self.content_stack.setCurrentWidget(self.split)
+            self._display_page("play")
             self._save_settings()
 
         self.ctl.new_game(size, color, rules, komi, strength, committed, InteractionMode.PLAY)
@@ -622,7 +733,7 @@ class MainWindow(QMainWindow):
             self.load_path(Path(f))
 
     def load_path(self, path: Path, mode: Optional[InteractionMode] = None) -> bool:
-        if not self.ctl.can_replace_game:
+        if self._background_active or not self.ctl.can_replace_game:
             self._show_msg(tr('请等待引擎完成当前操作，再打开棋谱'))
             return False
         try:
@@ -686,12 +797,18 @@ class MainWindow(QMainWindow):
         return True
 
     def open_engine_settings(self) -> None:
+        if self._background_active or self.ctl.state in (State.STARTING, State.SYNCING, State.AI_THINKING):
+            self._show_msg(tr("请等待当前引擎操作完成"))
+            return
         d = EngineSettingsDialog(self.settings.engine, self)
         if d.exec() != EngineSettingsDialog.DialogCode.Accepted:
             return
+        previous = self.settings.engine
         self.settings.engine = d.result_settings()
         if not self._save_settings():
+            self.settings.engine = previous
             return
+        self.settings_page.sync()
         self.ctl.settings = self.settings
         self.ctl.restart_engine()
 
@@ -702,9 +819,18 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, tr('错误'), text)
 
     def closeEvent(self, e: QCloseEvent) -> None:
-        if self.ctl.state in (State.STARTING, State.SYNCING, State.AI_THINKING, State.ANALYZING):
+        if not self._background_active and self.ctl.state in (State.STARTING, State.SYNCING, State.AI_THINKING, State.ANALYZING):
             self.ctl.interrupt()
         if not self.confirm_discard():
+            e.ignore()
+            return
+        self._closing = True
+        self._resume_engine = False
+        self.review_page.cancel()
+        self.tuning_panel.cancel()
+        if not self.review_page.wait_for_finished() or not self.tuning_panel.wait_for_finished():
+            self._closing = False
+            self._show_msg(tr("后台任务尚未结束，请稍后再关闭窗口"))
             e.ignore()
             return
         self._save_settings()
@@ -719,7 +845,6 @@ class MainWindow(QMainWindow):
             self.split.setOrientation(orientation)
             if self.btn_sidebar.isChecked():
                 self.set_sidebar_expanded(True)
-        self.right_scroll.setMinimumWidth(0 if compact else 360)
         super().resizeEvent(e)
 
     def _save_settings(self) -> bool:

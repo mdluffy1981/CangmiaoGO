@@ -1,19 +1,24 @@
 # Cangmiao — 本地围棋人机对弈
 
-基于 Python + PySide6 的 Windows 桌面围棋应用。KataGo 作为独立进程运行，通过 GTP 协议通信。启动直接显示棋盘，左侧主菜单提供“人机对战”“AI 分析”和“死活题”，右侧提供新建棋局、对局操作和引擎设置，可收起右栏以扩大棋盘。执黑或执白统一在新建棋局时选择。功能：
+基于 Python + PySide6 的 Windows 桌面围棋应用。KataGo 作为独立本地进程运行。左侧主菜单提供“人机对战”“AI 分析”“死活题”和“设置”，不再显示应用顶部菜单或全局工具栏；系统标题栏保留。对战时在新建棋局中选色，复盘时先选择自己执黑或执白再导入 SGF。功能：
 
 - 9 / 13 / 19 路对局，可执黑或执白（执白时 AI 先行），支持中国/日本/韩国/AGA/新西兰/Tromp-Taylor 规则和自定义贴目
 - AI 强度预设（快速/标准/较强/最强），以访问数与时间上限控制 AI 对弈的搜索，不对应固定段位（AI 分析不受预设限制）
 - 悔棋、停一手、认输、双方停一手后自动计分
 - AI 分析编辑：用户可按顺序操作黑白双方，不触发 AI 自动应手；分析开启后持续运行，落子后自动分析新局面，直到手动停止；引擎持续更新 30 个候选点评估（合法着法不足时返回实际数量），界面按胜率显示前 10 项，并以颜色区分最优解（绿）、本手（黄）与普通候选（蓝）；显示黑白胜率、目差、访问数、用时与 NPS，选中候选可预览变化
-- 死活题：导入包含答案变化分支的 SGF 题集，逐题练习、查看提示或预览答案；做题进度保存在本机。程序不内置第三方题库，题目答案依赖 SGF 中提供的解答分支
+- 整盘复盘：左侧逐手分析、中央棋盘、底部胜率曲线；查看选点优劣、实战与推荐、胜率百分点变化、目差变化、选点损失及搜索样本。分析可暂停、继续，结果缓存到本地
+- 死活题：离线自制示例、SGF 题集导入、正误/未知答案区分、提示和逐步答案、错题重练及本地进度；不内置授权不明确的第三方题库
+- 深色、浅色、国风三种主题，在“设置 → 外观与语言”立即切换并保存
+- 本地 KataGo 一键调优：检测引擎能力、比较线程配置、验证候选配置和恢复旧配置；不降低搜索预算，不承诺每台设备都加速
 - SGF 打开/保存（UTF-8，兼容 GB18030 编码的棋谱）
 
 ## 0. 安装包（CPU 版，开箱即用）
 
 运行 `dist\Cangmiao-0.2.2-Tiny-CPU-Setup.exe` 可安装 Tiny 版。它内置 KataGo v1.18.1 通用 CPU 引擎和官方 b10c384 模型（10 个网络块），无须 AVX2 或联网；相较标准 CPU 版不包含 AVX2 引擎，适合优先控制下载和安装体积的场景。Tiny 使用独立安装标识，可与标准版并存，并使用独立设置目录 `%LOCALAPPDATA%\CangmiaoTiny`，不会覆盖标准版已有配置。默认按当前用户安装，不需要管理员权限，可在开始菜单打开或卸载。模型 SHA-256 和上游网络许可随包附带，见安装目录中的 `engine\MODEL-NOTICE.txt`。这是 KataGo 已发布的预训练模型，不是 Cangmiao 训练出的模型；“b10”指 10 个网络块，不是 10 billion 参数。
 
-CUDA 版可运行 `dist\Cangmiao-0.2.3-CUDA-Setup.exe` 安装，针对 NVIDIA GPU，内置官方 KataGo v1.18.2 CUDA 12.5 / cuDNN 9.8 引擎和 b18c384 模型。安装包同时内置 NVIDIA 可再分发的 cuBLAS 12.5、NVRTC 12.5 和 cuDNN 9.8 DLL（与 `katago.exe` 同目录），**只需 NVIDIA 显卡和支持 CUDA 12.5 的驱动**，无需安装 CUDA Toolkit 或 cuDNN，也无需修改 `PATH`。CUDA 版使用独立安装标识和 `%LOCALAPPDATA%\CangmiaoCUDA` 设置目录，可与 CPU/Tiny 版并存。CUDA 不可用或不满足依赖时，可使用标准版 CPU/OpenCL 引擎。随包 `engine\CUDA-NOTICE.txt` 提供依赖、校验和及许可信息。
+CUDA 版可运行 `dist\Cangmiao-0.2.4-CUDA-Setup.exe` 安装，针对 NVIDIA GPU，内置官方 KataGo v1.18.2 CUDA 12.5 / cuDNN 9.8 引擎和 b18c384 模型。安装包同时内置 NVIDIA 可再分发的 cuBLAS 12.5、NVRTC 12.5 和 cuDNN 9.8 DLL（与 `katago.exe` 同目录），**只需 NVIDIA 显卡和支持 CUDA 12.5 的驱动**，无需安装 CUDA Toolkit 或 cuDNN，也无需修改 `PATH`。CUDA 版使用独立安装标识和 `%LOCALAPPDATA%\CangmiaoCUDA` 设置目录，可与 CPU/Tiny 版并存。CUDA 不可用或不满足依赖时，可使用标准版 CPU/OpenCL 引擎。随包 `engine\CUDA-NOTICE.txt` 提供依赖、校验和及许可信息。
+
+0.2.4 本地交付包含本轮五项界面与功能升级。264 项常规测试通过、12 项可选真实引擎测试跳过；另外完成真实 CPU/CUDA 调优、CUDA 复盘/缓存恢复及隔离安装验收。`dist\Cangmiao-0.2.4-CUDA.zip` 包含安装程序、项目记录和 CUDA 许可说明，并非便携版。本轮未构建 0.2.4 CPU/Tiny 安装包或上传 GitHub Release；OpenCL 调优未实测。
 
 标准 CPU 版使用 KataGo v1.18.1 AVX2 与通用 CPU 引擎及 b18c384 模型。构建出的完整安装程序和 ZIP 位于 `dist\`；构建前可按下列命令生成相应版本。
 
@@ -72,11 +77,11 @@ GPU 版失败时脚本会报错退出，**不会自动改用 CPU**；CUDA 版需
 1. 从 <https://github.com/lightvector/KataGo/releases> 下载 Windows 版（`opencl` 或 `eigenavx2`）并解压；
 2. 从 <https://katagotraining.org/networks/> 下载模型（`.bin.gz`）；
 3. 使用压缩包中的 `default_gtp.cfg` 作为配置（可修改 `numSearchThreads` 等）；
-4. 启动应用后在“引擎 → 引擎设置”中填入三个路径。
+4. 启动应用后在左侧“设置 → 引擎与模型 → 引擎设置”中填入三个路径。
 
 应用启动 KataGo 时会附加 `-override-config reportAnalysisWinratesAs=SIDETOMOVE,ponderingEnabled=false`，通过 `kata-set-param` 应用对局预算。多线程搜索与停止确认有少量开销，访问数可能略超阈值；预设不是硬实时保证或固定段位。
 
-AI 分析使用 `kata-analyze <颜色> 20 maxmoves 30 minmoves 30 rootInfo true`（每 0.2 秒刷新），不设访问数或时间上限，会一直搜索到手动停止或切换模式；落子后自动在新局面继续。收起右栏不会停止分析，仍可通过“视图 → 停止分析”结束搜索。`minmoves` 与 `maxmoves` 控制报告数量，不限制搜索树只探索 30 个着法；访问数为 0 的候选是模型初始评估，后续搜索由 KataGo 动态分配。长时间不停止时，KataGo 的搜索树会持续增长并占用更多内存，不需要时请点“停止分析”。候选按当前行棋方胜率排序（胜率相同时按访问数）取前 10 项：第 1 名为最优解（绿色），与最优解胜率差 ≤ 2% 且目差差距 ≤ 1 目的为本手（黄色），其余为普通候选（蓝色）。
+“设置 → 引擎与模型 → 局面研究（自由落子）”保留实时分析功能，使用 `kata-analyze <颜色> 20 maxmoves 30 minmoves 30 rootInfo true`（每 0.2 秒刷新）。它不设访问数或时间上限，会一直搜索到停止或切换模式；落子后自动继续。收起右栏不会停止分析，可先展开右栏再停止。`minmoves` 与 `maxmoves` 控制报告数量，不限制搜索树只探索 30 个着法；访问数为 0 的候选是模型初始评估。长时间搜索占用更多内存。候选按当前行棋方胜率排序取前 10 项：第 1 名为最优解，与最优解胜率差 ≤ 2 个百分点且目差差距 ≤ 1 目的为本手，其余为普通候选。整盘复盘使用独立的受控搜索预算，不沿用此无限搜索模式。
 
 分析模式右栏采用紧凑按钮与单行指标布局；在 1280×860、1366×768 窗口下可完整显示十行候选，无需向下滚动。更窄的窗口仍保留纵向布局与滚动，以免遮挡内容。
 
@@ -89,33 +94,67 @@ AI 分析使用 `kata-analyze <颜色> 20 maxmoves 30 minmoves 30 rootInfo true`
 .\.venv\Scripts\python -m katago_gui 对局.sgf   # 打开棋谱并进入 AI 分析
 ```
 
-首次启动若未配置引擎，窗口顶部会显示黄色提示条和“引擎设置”按钮。自动安装脚本会保存路径，下次启动即可使用；手动安装可点击设置中的“从默认目录检测”。存在多个引擎/模型时需明确选择，不自动挑选后端。引擎加载期间状态栏显示进度。
+首次启动若未配置引擎，棋盘页面显示黄色提示条，可进入左侧设置。自动安装脚本会保存路径，下次启动即可使用；手动安装可点击设置中的“从默认目录检测”。存在多个引擎/模型时需明确选择，不自动挑选后端。引擎加载期间底部状态栏显示进度。
 
 项目与应用名称为 Cangmiao；为兼容已有配置，Python 模块仍为 `katago_gui`，数据目录仍为 `%LOCALAPPDATA%\KataGoDesktop`，环境变量仍为 `KATAGO_GUI_HOME`。原 `katago-desktop` / `katago-desktop-setup` 命令保留为兼容入口，新命令为 `cangmiao` / `cangmiao-setup`。
 
 ### 界面语言 / Interface language（0.2.1）
 
-0.2.0 仅安装向导支持中英选择，应用内部未接入翻译。0.2.1 新增应用语言菜单：选择“语言 → English”可立即切换为英语，选择“Language → 简体中文”可切回中文，无需重启。菜单、对局控制、新局/引擎设置对话框、分析指标、候选提示及应用自身的错误信息均支持翻译。
+左侧“设置 → 外观与语言”可立即切换简体中文或 English，无需重启。对局控制、新局/引擎设置对话框、分析指标、候选提示及应用自身的错误信息支持翻译。
 
 首次使用且没有设置文件时，根据系统语言选择中文或英语；升级时保留已有配置，旧设置未指定语言则仍使用中文。语言选择成功保存后下次启动自动恢复。切换语言不会改变当前棋局、引擎搜索、右栏折叠状态或选中的候选。棋谱中的玩家姓名、文件名以及 KataGo 输出的原始日志不进行翻译。
 
-**English:** Choose **Language → English** (or **语言 → English**) to switch immediately. The choice is saved for the next launch. Menus, game controls, dialogs, analysis and application-generated messages are translated. Existing games, engine settings and ongoing searches are preserved. Raw engine logs and user-provided SGF names remain unchanged. Download the CPU ZIP from GitHub Releases, extract it and run the included setup executable.
+**English:** Choose **Settings → Appearance and Language → English** to switch immediately and persist the choice. Settings are in the left navigation; there is no application top menu. Dark, Light and Chinese themes apply without changing the game. Raw engine logs and user-provided SGF names remain unchanged.
 
-启动不自动触发 AI 首手；通过“新建棋局”选择执白并确认后，AI 才会自动执黑先行。右栏默认展开，右上角按钮或 `Ctrl+Shift+P` 可收起/展开，保留当前标签页、棋局和分析状态；重启后恢复默认展开。窄窗口采用上下布局与可滚动面板。右栏收起时仍可通过菜单新建棋局、打开/保存 SGF、设置引擎和停止分析。
+启动不自动触发 AI 首手；通过“新建棋局”选择执白并确认后，AI 才会自动执黑先行。对战/局面研究的右栏默认展开，棋盘下方按钮或 `Ctrl+Shift+P` 可收起/展开；`Ctrl+N`、`Ctrl+O`、`Ctrl+S` 和 `Ctrl+Shift+S` 保留新建、打开、保存与另存为。窄窗口采用上下布局与可滚动面板。
+
+### 整盘复盘 / Whole-game review
+
+进入“AI 分析”，先选执黑或执白，再导入 SGF。逐手列表和详情在左侧，棋盘在中央，胜率曲线在最底部；点击列表或曲线同步跳转。胜率和目差按所选颜色显示：黑胜率从 60% 到 55% 为黑方 −5 个百分点、白方 +5 个百分点。选点损失按落子方在同一落子前局面的最佳候选与实战候选计算，不使用相邻局面涨跌冒充选点损失；实战点没有评估时显示未知。低样本不是统计置信度，也不是死活证明。
+
+整盘复盘可在页面选择搜索访问数：默认每局面 128 次，可调 64–4096；更大预算耗时更长，低预算结果仅供参考。更改预算使用新的缓存身份，不混用不同预算的结果。整盘复盘和调优使用独立后台进程，开始前暂停并释放正常对局引擎，结束后恢复原棋局；不能与正在进行的落子或另一后台任务同时启动。切换页面会请求取消当前后台任务，已完成的复盘结果可继续使用。导入棋谱不替换原对战棋局。
+
+**English:** In **AI Analysis**, choose your color before importing SGF. The move review is on the left, the board in the center and the win-rate chart at the bottom. Review uses a bounded local search and a persistent cache. Deltas use one consistent player perspective and percentage points. Move loss compares candidates from the same pre-move position; missing evaluations remain unknown. Review and tuning do not run concurrently with a normal game search.
+
+The visit budget defaults to 128 per position and can be set to 64–4096; higher budgets take longer. Different budgets use distinct cache identities, and low-budget results are advisory.
+
+### 死活题 / Life & death
+
+提供自制离线示例，也可自行导入 SGF 集合。正解、错误和答案未知分别显示，提示/查看答案不算独立完成；可重做、逐步看答案及筛选错题/未完成题。进度保存在应用数据目录。题库路径变化不应重置同一道题的进度。
+
+用户提供的参考项目是 [KaTrain](https://github.com/sanderland/katrain)，本应用未下载或捆绑其第三方题集。只有明确允许再分发的题目才可内置；源码许可与题库许可必须分别核验。
+
+**English:** Offline self-authored examples are included. Import your own SGF collections, retry mistakes, request hints and step through answers. Unknown answer endings are not treated as proven solutions, and assisted completion is separate from independent completion. No third-party puzzle collection from KaTrain is bundled.
+
+### 本地调优 / Local tuning
+
+从“设置 → 性能调优”开始。程序核验 KataGo 的命令能力，以相同测试预算测量基线及候选线程数，只有稳定改善且配置自检通过才生成可应用配置。测试有时限、可取消，并提供日志与恢复上次配置。配置写入应用数据目录，不覆盖安装目录中的原文件、不修改驱动、系统 PATH 或模型。无收益时保留原配置；切换设备、引擎、后端或模型后应重新调优。初版以已核验的 `benchmark` 线程参数调优为主，不强行调用各后端未核验的专用 tuner。
+
+**English:** **Settings → Performance Tuning** benchmarks local thread settings with a fixed budget and validates a candidate before application. Cancel, diagnostic output and restoration are supported. No gain keeps the original configuration. This is neither model training nor overclocking; it does not reduce play/review budgets or guarantee a speedup. Retune after hardware, backend, engine or model changes.
+
+### 界面截图 / Screenshots
+
+![真实 CUDA 复盘（9 路、6 手、每局面 64 次访问；低预算示例）](assets/upgrade-20261114/review-real.png)
+
+| 浅色死活题 | 国风死活题 |
+| --- | --- |
+| ![浅色](assets/upgrade-20261114/light-tsumego.png) | ![国风](assets/upgrade-20261114/chinese-tsumego.png) |
+
+![左侧设置](assets/upgrade-20261114/settings.png)
 
 ## 5. 基本操作
 
 | 操作 | 说明 |
 | --- | --- |
-| 新建棋局 | 右栏和文件菜单共用同一对话框，选择棋盘、玩家执色、规则、贴目（默认中国规则 7.5）和 AI 强度；确认后进入人机对弈，AI 执黑时自动先行。取消不改变当前棋局 |
-| 人机对战 | 左侧主菜单入口；已在对战模式时保留当前棋局，从分析模式返回时打开“新建棋局”选色，确认后才替换棋局，取消则留在分析模式 |
-| AI 分析模式 | 左侧主菜单“AI 分析”或视图菜单保留当前棋局与棋谱路径并允许编辑双方着手；当前模式在左侧高亮，右栏收起时仍可使用主菜单 |
-| 收起/展开右栏 | 右上角按钮、视图菜单或 `Ctrl+Shift+P`，仅改变布局，不停止分析或切换模式 |
+| 新建棋局 | 对战右栏或 `Ctrl+N` 选择棋盘、玩家执色、规则、贴目和 AI 强度；确认后 AI 执黑时自动先行，取消保留棋局 |
+| 人机对战 | 左侧入口，从独立复盘、死活题或设置返回时保留原对局 |
+| AI 分析模式 | 左侧进入独立整盘复盘，先选色再导入；原自由落子分析在设置中的“局面研究” |
+| 收起/展开右栏 | 棋盘下方按钮或 `Ctrl+Shift+P`，仅改变对战/局面研究布局 |
 | 落子 | 轮到你时点击交叉点；非法着法（已有棋子、自杀、劫）会在状态栏提示原因且不改变棋局 |
 | AI 落子 | 悔棋或导入棋谱后若轮到 AI，AI 不会自动走棋，点此让 AI 继续 |
 | 悔棋 | 撤销最近一个完整回合（AI 与你各一手）；若只有 AI 的首手则撤销该手。引擎拒绝时棋盘保持不变 |
 | 停一手 / 认输 | 双方连续停一手后对局结束并由 KataGo 计分；无法计分时显示“已终局，但引擎未能给出计分结果” |
-| 分析 | “开始分析”后持续分析，落子或悔棋后自动在新局面继续，直到点击“停止分析”或切换模式；收起右栏时可通过视图菜单停止。分析模式每次落子只提交 `play`，悔棋只退一手；分析中操作会先暂停分析、确认后再恢复 |
+| 局面研究分析 | “开始分析”后持续搜索，落子或悔棋后继续；停止按钮在右栏，收起后可用棋盘下方按钮展开。黑白编辑和变化预览仍保留 |
 | SGF | 打开时只读取第一局的主变化线，变化分支、未知属性会列出并请你确认；损坏的棋谱会指出行列位置 |
 
 AI 思考、引擎同步或停止分析期间禁止落子、重复提交与保存未确认的局面；窗口仍可重绘、查看日志或重启引擎。新局、打开棋谱或退出时，如有未保存的变更会提示保存。关闭窗口会先中止正在执行的引擎操作，保留最后确认的棋局再提示保存；取消退出后可点击“重启引擎”继续。
@@ -134,7 +173,7 @@ AI 思考、引擎同步或停止分析期间禁止落子、重复提交与保�
 | 现象 | 处理 |
 | --- | --- |
 | 提示“尚未配置 KataGo 引擎” | 运行 `setup_engine` 或在“引擎设置”中填写路径 |
-| 引擎启动失败 / 意外退出 | 查看提示中的 stderr 末尾和“引擎 → 查看日志”。常见原因：模型与 KataGo 版本不匹配、显卡驱动过旧、缺少 VC++ 运行库。可改用 CPU 版 |
+| 引擎启动失败 / 意外退出 | 查看提示中的 stderr 末尾和“设置 → 日志与诊断”。常见原因：模型与 KataGo 版本不匹配、显卡驱动过旧、缺少 VC++ 运行库。可改用 CPU 版 |
 | 首次启动很久 | OpenCL 正在调优（结果缓存在 `KataGoData\opencltuning`，之后很快）；启动等待上限 15 分钟 |
 | AI 思考超时 | 超过“预设时间 + 30 秒”会终止引擎；点“重启引擎”从当前棋谱恢复 |
 | 分析按钮不可用 | 引擎不支持 `kata-analyze`（非 KataGo 引擎） |

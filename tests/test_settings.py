@@ -28,6 +28,29 @@ def test_settings_roundtrip_and_first_launch(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8"))["game"]["board_size"] == 9
 
 
+@pytest.mark.parametrize("theme", ["dark", "light", "chinese"])
+def test_theme_settings_roundtrip_and_legacy(tmp_path, theme):
+    path = tmp_path / "settings.json"
+    settings = Settings(theme=theme)
+    settings.save(path)
+    assert Settings.load(path).theme == theme
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["theme"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert Settings.load(path).theme == "dark"
+
+
+def test_invalid_theme_preserves_settings(tmp_path):
+    path = tmp_path / "settings.json"
+    data = '{"theme":"invalid"}'
+    path.write_text(data, encoding="utf-8")
+    with pytest.raises(ValueError, match="主题"):
+        Settings.load(path)
+    assert path.read_text(encoding="utf-8") == data
+    with pytest.raises(ValueError, match="主题"):
+        Settings(theme="invalid").save(path)
+
+
 def test_failed_atomic_save_preserves_original(tmp_path, monkeypatch):
     from pathlib import Path
     from katago_gui.sgf import save_sgf

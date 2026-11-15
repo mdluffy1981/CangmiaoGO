@@ -10,6 +10,8 @@ from . import paths
 from .strength import DEFAULT_PRESET, get_preset
 from .go.game import GameRecord
 
+THEME_IDS = ("dark", "light", "chinese")
+
 
 class SettingsError(ValueError):
     pass
@@ -51,6 +53,7 @@ class Settings:
     game: GameSettings = field(default_factory=GameSettings)
     last_sgf_dir: str = ""
     language: str = field(default_factory=get_language)
+    theme: str = "dark"
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Settings":
@@ -68,6 +71,9 @@ class Settings:
             s.language = _string(data, "language", "zh_CN")
             if s.language not in LANGUAGES:
                 raise ValueError(tr("不支持的界面语言：{0}", s.language))
+            s.theme = _string(data, "theme", "dark")
+            if s.theme not in THEME_IDS:
+                raise ValueError(tr("不支持的界面主题：{0}", s.theme))
             engine = _section(data, "engine")
             game = _section(data, "game")
             s.engine = EngineSettings(_string(engine, "executable", ""),
@@ -92,6 +98,8 @@ class Settings:
         self.game.validate()
         if self.language not in LANGUAGES:
             raise ValueError(tr("不支持的界面语言：{0}", self.language))
+        if self.theme not in THEME_IDS:
+            raise ValueError(tr("不支持的界面主题：{0}", self.theme))
         path.parent.mkdir(parents=True, exist_ok=True)
         paths.atomic_write_text(path, json.dumps(asdict(self), ensure_ascii=False, indent=2, allow_nan=False))
 

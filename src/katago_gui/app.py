@@ -12,7 +12,6 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from . import APP_NAME, paths
 from .bundled import apply_bundled_engine
 from .settings import Settings, SettingsError
-from .controller import InteractionMode
 from .ui.main_window import MainWindow
 
 
@@ -40,8 +39,9 @@ def main(argv: list[str] | None = None) -> int:
     win = MainWindow(settings)
     win.show()
     sgf_args = [a for a in argv[1:] if a.lower().endswith(".sgf")]
-    # Load before starting the engine so the startup sync replays the imported game.
-    loaded = bool(sgf_args) and win.load_path(Path(sgf_args[0]), mode=InteractionMode.ANALYSIS)
+    if sgf_args:
+        win.enter_analysis_mode()
+        win.review_page.set_pending_path(Path(sgf_args[0]))
     win.ctl.start_engine(auto_ai_move=False)
     return app.exec()
 

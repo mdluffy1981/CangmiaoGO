@@ -2,7 +2,7 @@
 
 **一款面向 Windows 的围棋人机对弈与 AI 分析桌面应用。**
 
-Cangmiao 将围棋棋盘、对局管理和 KataGo AI 分析整合在一个简洁的桌面界面中。你可以选择棋盘大小和规则，与 AI 进行对弈；也可以进入分析模式，自由摆放黑白双方的着手，观察 AI 对局势的判断和候选变化。
+Cangmiao 将围棋棋盘、对局管理、整盘复盘和死活题练习整合在桌面界面中。左侧导航包含人机对战、AI 分析、死活题和设置，不再保留应用顶部菜单或全局工具区。系统标题栏仍正常显示。
 
 项目使用 Python 和 PySide6 构建桌面界面，KataGo 作为独立进程运行，并通过 GTP 协议通信。Windows 安装包提供标准 CPU、Tiny CPU 和 NVIDIA CUDA 版本；CPU 版开箱即用，CUDA 版面向 NVIDIA GPU，已内置 CUDA 12.5 / cuDNN 9 运行库，只需 NVIDIA 显卡和较新的驱动。
 
@@ -10,8 +10,11 @@ Cangmiao 将围棋棋盘、对局管理和 KataGo AI 分析整合在一个简洁
 
 - **人机对弈：** 支持 9 路、13 路和 19 路棋盘，可选择执黑或执白。执白时 AI 执黑先行。
 - **可调 AI 强度：** 提供快速、标准、较强、最强等预设，以搜索访问数和时间预算控制对弈强度。预设不是固定段位，也不是硬实时保证。
-- **自由分析棋局：** 在分析模式中按顺序操作黑白双方，落子或悔棋后可继续分析新局面；分析会持续运行，直到手动停止或切换模式。
-- **死活题练习：** 从左侧进入死活题模式，导入包含答案变化分支的 SGF 题集，逐题练习、查看提示或预览答案；做题进度保存在本机。程序不内置第三方题库，判题依赖 SGF 提供的答案分支。
+- **整盘复盘：** 先选择自己执黑或执白，再导入 SGF。左侧逐手分析展示实战与推荐、胜率百分点变化、目差变化、选点损失和样本信息，底部曲线与棋盘联动；分析可暂停和继续。
+- **自由研究局面：** 设置中的“局面研究”保留黑白自由落子、实时分析与候选变化预览。
+- **死活题练习：** 自制离线示例、SGF 题集导入、多正解/错误/未知答案区分、提示、逐步答案、错题重练和本地进度。查看答案不算独立完成。
+- **三种主题：** 深色、浅色、国风，在左侧设置实时切换并持久化。
+- **本地一键调优：** 基准测试比较线程配置，验证后应用，支持取消和恢复原配置；不会修改驱动、超频或训练模型，也不承诺固定加速比例。
 - **候选着法与局势评估：** 查看候选点、双方胜率、目差、访问数、搜索用时和 NPS，并在棋盘上预览候选变化。候选点以颜色区分最优解、本手和其他候选。
 - **常用对局操作：** 支持悔棋、停一手、认输；双方连续停一手后可由引擎计分。
 - **棋谱管理：** 打开和导出 SGF 棋谱，兼容 UTF-8 和 GB18030 编码的棋谱。
@@ -23,21 +26,23 @@ Cangmiao 将围棋棋盘、对局管理和 KataGo AI 分析整合在一个简洁
 
 程序启动后直接进入棋盘工作区。界面围绕棋盘、模式切换和侧边控制面板组织：
 
-1. **棋盘与主菜单** — 棋盘是主要操作区域；左侧主菜单用于切换“人机对战”“AI 分析”和“死活题”，并标示当前模式。
+1. **棋盘与主菜单** — 左侧切换“人机对战”“AI 分析”“死活题”和“设置”，并标示当前页面。
 2. **对局控制面板** — 新建棋局、设置执棋方、棋盘大小、规则、贴目和 AI 强度；对局中可执行 AI 落子、悔棋、停一手、认输和数子等操作。
-3. **分析面板** — 展示胜率、目差和搜索信息，并列出推荐着法。选择候选着法可在棋盘上预览变化。
+3. **复盘工作区** — 页面左侧是逐手列表与详情，中央棋盘，最底部是全局胜率曲线；点击列表或曲线同步跳转。
 4. **着手列表** — 查看棋局着手记录。打开棋谱后可继续浏览、对弈或分析。
-5. **死活题面板** — 导入含解答分支的 SGF 题集，选择题目后可重做、查看提示或预览答案；错误或正确记录保存在本地应用目录。
+5. **死活题面板** — 可直接使用自制示例或导入题集；选择题目、筛选错题、重做、提示或逐步看答案，学习进度保存在本地。
 6. **可折叠侧栏** — 可收起控制面板以扩大棋盘区域；收起侧栏不会自动停止正在进行的分析。
-7. **引擎状态与设置** — 首次使用时按提示配置引擎；引擎状态、启动进度和错误信息会在界面中反馈。
+7. **设置** — 左侧统一管理引擎与模型、性能调优、外观与语言、日志与诊断；状态及错误不会因移除顶部菜单而丢失。
 
-分析模式会持续搜索并消耗 CPU/GPU 资源。搜索初期的胜率和候选评估可能波动；不需要分析时请停止搜索。
+自由局面研究会持续搜索，整盘复盘使用受控预算；两者都消耗 CPU/GPU 资源。搜索初期的胜率和候选评估可能波动，不需要时请停止。
+
+![国风死活题与左侧导航](assets/upgrade-20261114/chinese-tsumego.png)
 
 ## 下载与安装
 
 ### Windows 安装包（推荐）
 
-前往 [GitHub Releases](https://github.com/mdluffy1981/Cangmiao/releases) 下载适合自己的版本。通常选择名称中带有 `Setup.exe` 的安装程序；如果下载 ZIP，请先解压，再按压缩包说明运行其中的安装程序。ZIP 包不是免安装的绿色便携版。
+前往 [GitHub Releases](https://github.com/mdluffy1981/CangmiaoGO/releases) 下载适合自己的版本。0.2.4 提供 CUDA 安装程序和 ZIP；较早版本提供 CPU 安装包。通常选择名称中带有 `Setup.exe` 的安装程序；如果下载 ZIP，请先解压，再按压缩包说明运行其中的安装程序。ZIP 包不是免安装的绿色便携版。
 
 标准 CPU 版包含 KataGo CPU 引擎、模型和应用运行环境。安装后无需单独安装 Python，也不需要为内置 CPU 引擎另外下载文件。安装程序默认以当前 Windows 用户安装，通常不需要管理员权限。
 
@@ -88,10 +93,10 @@ python -m venv .venv
 2. **首次配置引擎。** 如果应用提示尚未配置 KataGo，打开“引擎设置”；也可以使用自动配置命令。使用内置 CPU 安装包的用户通常无需此步骤。
 3. **新建棋局。** 选择 9 路、13 路或 19 路棋盘，设置执黑或执白、规则和贴目，并选择 AI 强度。
 4. **开始对弈。** 在棋盘交叉点落子；轮到 AI 时等待其应手。也可使用悔棋、停一手或认输等控制。
-5. **分析棋局。** 切换到“AI 分析”，在棋盘上编辑双方着手，启动分析后查看胜率、候选着法和搜索数据。完成后手动停止分析。
+5. **复盘棋局。** 切换到“AI 分析”，先选执黑/执白再导入 SGF，开始整盘分析后浏览逐手详情与底部曲线。自由研究局面另在设置中进入。
 6. **保存或继续棋谱。** 使用打开/导出 SGF 功能保存棋局，或从已有棋谱继续分析。
 
-打开 SGF 后，程序会进入分析模式，便于检查和延续棋局。AI 分析不受人机对弈强度预设的搜索预算限制，且会持续搜索；长时间分析会增加资源占用。
+整盘复盘独立于当前对战棋局，使用受控搜索预算并缓存结果；胜率涨跌保持同一玩家视角，选点损失比较同一落子前局面的候选，缺失数据不会被当作零损失。后台复盘和调优不能与正在落子的正常引擎同时运行。自由研究局面的实时分析仍会持续搜索，不使用时请停止。
 
 ## 项目优势
 
@@ -126,8 +131,11 @@ The interface is built with Python and PySide6. KataGo runs as a separate proces
 
 - **Play against AI:** Choose a 9x9, 13x13, or 19x19 board and play as Black or White. When playing White, AI makes the first move as Black.
 - **Adjustable AI strength:** Choose from several presets that control search visits and time. Presets are not fixed rank equivalents or hard real-time guarantees.
-- **Explore positions:** Play moves for either side in analysis mode. Analysis can continue after moves or undo operations until you stop it or switch modes.
-- **Life & death practice:** Import SGF collections with solution variations, practice problems, request hints, and preview answers. Progress is stored locally. No third-party puzzle collection is bundled; judging follows the solution variations in the SGF.
+- **Whole-game review:** Choose your color before importing SGF. Browse per-move evaluations on the left and a linked win-rate chart at the bottom. Review can be paused and resumed with a local cache.
+- **Explore positions:** Free-play position study remains available from Settings, with continuous analysis and candidate previews.
+- **Life & death practice:** Offline self-authored examples, SGF import, mistake filters, hints, step-by-step answers and local progress. Unknown endings are not certified; assisted completion is separate from independent completion. No third-party collection is bundled.
+- **Three themes:** Dark, Light and Chinese styles apply immediately and persist locally.
+- **Local tuning:** Benchmark thread settings, validate improvements and restore the previous configuration. No driver changes, overclocking, model training or guaranteed speedup.
 - **Detailed analysis:** Review candidate moves, both sides' win rates, score lead, visits, search time, and NPS. Candidate variations can be previewed on the board and are visually categorized.
 - **Game controls:** Undo, pass, resign, and score the game after both sides pass.
 - **SGF support:** Open and export SGF records, including records encoded in UTF-8 or GB18030.
@@ -139,21 +147,21 @@ The interface is built with Python and PySide6. KataGo runs as a separate proces
 
 The application opens directly to the board workspace:
 
-1. **Board and navigation** — The board is the main play area. The left-side menu switches between Play, AI Analysis, and Life & Death and highlights the active mode.
+1. **Board and navigation** — The left-side menu switches between Play, AI Analysis, Life & Death and Settings. There is no application top menu or global toolbar; the system title bar remains.
 2. **Game controls** — Create a game, choose board size, color, rules, komi, and AI strength; then make AI moves, undo, pass, resign, or score.
-3. **Analysis panel** — View win rates, score lead, search metrics, and candidate moves. Selecting a candidate previews its variation on the board.
+3. **Review workspace** — Per-move list and details on the left, a central board and a win-rate chart at the bottom. Chart and list selection navigate the same position.
 4. **Move list** — Follow the game's move history and continue from an opened record.
-5. **Life & death panel** — Import SGF collections with solution variations, choose a problem, and restart, request a hint, or preview the answer. Results are saved locally.
+5. **Life & death panel** — Start with offline examples or import SGF. Filter mistakes, retry, request hints and step through answers. Learning progress is saved locally.
 6. **Collapsible sidebar** — Hide the controls to give the board more room. Collapsing the sidebar does not stop ongoing analysis.
-7. **Engine status and settings** — Configure KataGo when needed; startup progress, engine status, and errors are reported in the interface.
+7. **Settings** — Engine and model, performance tuning, appearance and language, and diagnostics are managed from the left navigation. Errors and startup progress remain visible.
 
-Analysis searches continuously and consumes CPU/GPU resources. Early win-rate and candidate estimates can fluctuate; stop analysis when it is no longer needed.
+Free-play study searches continuously; whole-game review uses a bounded budget. Both consume CPU/GPU resources. Early estimates can fluctuate; stop searches when no longer needed.
 
 ## Download and installation
 
 ### Windows installer (recommended)
 
-Visit [GitHub Releases](https://github.com/mdluffy1981/Cangmiao/releases) and choose a release. For a typical installation, download the asset whose name ends in `Setup.exe`. If you download a ZIP archive, extract it and follow the included instructions to run its installer. The ZIP package is not a portable, no-install application.
+Visit [GitHub Releases](https://github.com/mdluffy1981/CangmiaoGO/releases) and choose a release. Version 0.2.4 provides a CUDA installer and ZIP; earlier releases provide CPU installers. For a typical installation, download the asset whose name ends in `Setup.exe`. If you download a ZIP archive, extract it and follow the included instructions to run its installer. The ZIP package is not a portable, no-install application.
 
 The standard CPU installer bundles KataGo, a model, and the application runtime. Python does not need to be installed separately, and the bundled CPU engine does not need an additional download. By default, the installer installs for the current Windows user and usually does not require administrator privileges.
 
@@ -200,10 +208,10 @@ See [README.md](README.md) for detailed setup, engine configuration, and build i
 2. **Configure the engine if prompted.** Open Engine Settings or run the setup command. Users of the bundled CPU installer can usually skip this step.
 3. **Create a game.** Choose a 9x9, 13x13, or 19x19 board, your color, rules, komi, and an AI strength preset.
 4. **Play.** Click an intersection to make a move and wait for AI when it is the engine's turn. Undo, pass, or resign when appropriate.
-5. **Analyze.** Switch to AI Analysis, make moves for either side, and start analysis to inspect win rates, candidate moves, and search metrics. Stop the search when finished.
+5. **Review.** Switch to AI Analysis, choose your color and import SGF before starting whole-game analysis. Use the move list and bottom chart to explore. Free-play position study is available in Settings.
 6. **Save or review a record.** Open or export an SGF file to preserve a game or continue analyzing an existing record.
 
-Opening an SGF record enters analysis mode so you can review and extend the game. Unlike AI play, analysis is not limited by the strength preset and continues searching until stopped; long sessions use additional system resources.
+Whole-game review preserves the original play session and uses a bounded search budget. Win-rate and score deltas use one consistent player perspective; move loss compares candidates from the same pre-move position, with missing data explicitly unknown. Review and tuning share compute resources exclusively with the normal game engine. Free-play study still searches continuously until stopped.
 
 ## Why Cangmiao
 
@@ -223,3 +231,5 @@ Opening an SGF record enters analysis mode so you can review and extend the game
 - Thanks to the **Python**, **PySide6 / Qt**, and broader open-source communities for the language, UI framework, and tools used by this project.
 
 KataGo, Go models, PySide6/Qt, and other dependencies are subject to their respective upstream licenses. Review the applicable license and notices before using or redistributing third-party components bundled with the installers.
+
+The user-suggested [KaTrain](https://github.com/sanderland/katrain) is a reference, not a bundled puzzle source. Its code license does not establish redistribution rights for third-party collections. Default examples in this application are self-authored; no restricted puzzle material was downloaded.

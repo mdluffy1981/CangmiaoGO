@@ -172,7 +172,7 @@ def test_language_switch_preserves_running_analysis(qtbot, make_controller):
     qtbot.addWidget(window)
     controller.start_engine()
     wait_state(qtbot, controller, State.READY)
-    window.btn_analysis.click()
+    window.enter_live_analysis_mode()
     window.analysis.button.click()
     qtbot.waitUntil(lambda: controller.analysis is not None, timeout=5000)
     game = controller.game

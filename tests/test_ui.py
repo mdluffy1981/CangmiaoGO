@@ -68,11 +68,10 @@ def test_workspace_starts_directly_and_analysis_preserves_game(qtbot, make_contr
     c.game.play("B", from_gtp("E5", 9))
     w.current_path = tmp_path / "current.sgf"
     w.btn_analysis.click()
-    assert c.mode == InteractionMode.ANALYSIS
+    assert c.mode == InteractionMode.PLAY
     assert len(c.game.moves) == 1
     assert w.current_path == tmp_path / "current.sgf"
-    assert w.btn_ai.isHidden() and w.btn_resign.isHidden()
-    assert w.tabs.currentWidget() is w.analysis
+    assert w.content_stack.currentWidget() is w.review_page
     assert w.btn_analysis.isChecked() and not w.btn_play.isChecked()
 
 
@@ -84,7 +83,7 @@ def test_left_play_menu_from_analysis_uses_new_game(qtbot, make_controller, monk
     w = MainWindow(c.settings, controller=c, ask=False)
     qtbot.addWidget(w)
     w.show()
-    w.btn_analysis.click()
+    w.enter_live_analysis_mode()
     c.game.play("B", from_gtp("E5", 9))
     previous = c.game
     w.btn_sidebar.click()
@@ -120,7 +119,7 @@ def test_analysis_continues_when_collapsed_and_can_stop_from_menu(qtbot, make_co
     w.show()
     c.start_engine()
     wait_state(qtbot, c, State.READY)
-    w.btn_analysis.click()
+    w.enter_live_analysis_mode()
     w.analysis.button.click()
     qtbot.waitUntil(lambda: c.analysis is not None, timeout=5000)
     assert w.analysis.button.text() == "停止分析"
@@ -187,7 +186,7 @@ def test_new_game_unifies_color_from_analysis(qtbot, make_controller, monkeypatc
     w.show()
     c.start_engine(auto_ai_move=False)
     wait_state(qtbot, c, State.READY)
-    w.btn_analysis.click()
+    w.enter_live_analysis_mode()
     assert c.board_play(from_gtp("E5", 9))
     wait_state(qtbot, c, State.READY)
     w.analysis.button.click()
@@ -222,7 +221,7 @@ def test_new_game_cancel_preserves_record_and_mode(qtbot, make_controller, monke
     c = make_controller(board_size=9)
     w = MainWindow(c.settings, controller=c, ask=False)
     qtbot.addWidget(w)
-    w.btn_analysis.click()
+    w.enter_live_analysis_mode()
     c.game.play("B", from_gtp("E5", 9))
     w.current_path = tmp_path / "old.sgf"
     game, settings = c.game, c.settings.game
@@ -256,7 +255,7 @@ def test_failed_new_game_keeps_original_record(qtbot, make_controller, monkeypat
     qtbot.addWidget(w)
     c.start_engine()
     wait_state(qtbot, c, State.READY)
-    w.btn_analysis.click()
+    w.enter_live_analysis_mode()
     assert c.board_play(from_gtp("E5", 9))
     wait_state(qtbot, c, State.READY)
     game, settings = c.game, c.settings.game
