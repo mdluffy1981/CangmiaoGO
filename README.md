@@ -18,7 +18,7 @@
 
 CUDA 版可运行 `dist\Cangmiao-0.2.4-CUDA-Setup.exe` 安装，针对 NVIDIA GPU，内置官方 KataGo v1.18.2 CUDA 12.5 / cuDNN 9.8 引擎和 b18c384 模型。安装包同时内置 NVIDIA 可再分发的 cuBLAS 12.5、NVRTC 12.5 和 cuDNN 9.8 DLL（与 `katago.exe` 同目录），**只需 NVIDIA 显卡和支持 CUDA 12.5 的驱动**，无需安装 CUDA Toolkit 或 cuDNN，也无需修改 `PATH`。CUDA 版使用独立安装标识和 `%LOCALAPPDATA%\CangmiaoCUDA` 设置目录，可与 CPU/Tiny 版并存。CUDA 不可用或不满足依赖时，可使用标准版 CPU/OpenCL 引擎。随包 `engine\CUDA-NOTICE.txt` 提供依赖、校验和及许可信息。
 
-0.2.4 本地交付包含本轮五项界面与功能升级。264 项常规测试通过、12 项可选真实引擎测试跳过；另外完成真实 CPU/CUDA 调优、CUDA 复盘/缓存恢复及隔离安装验收。`dist\Cangmiao-0.2.4-CUDA.zip` 包含安装程序、项目记录和 CUDA 许可说明，并非便携版。本轮未构建 0.2.4 CPU/Tiny 安装包或上传 GitHub Release；OpenCL 调优未实测。
+0.2.4 包含本轮五项界面与功能升级。264 项常规测试通过、12 项可选真实引擎测试跳过；另外完成真实 CPU/CUDA 调优、CUDA 复盘/缓存恢复及隔离安装验收。`dist\Cangmiao-0.2.4-CUDA.zip` 包含安装程序、项目记录和 CUDA 许可说明，并非便携版。本轮未构建 0.2.4 CPU/Tiny 安装包；OpenCL 调优未实测。发布状态见 [GitHub Releases](https://github.com/mdluffy1981/CangmiaoGO/releases)。
 
 标准 CPU 版使用 KataGo v1.18.1 AVX2 与通用 CPU 引擎及 b18c384 模型。构建出的完整安装程序和 ZIP 位于 `dist\`；构建前可按下列命令生成相应版本。
 
